@@ -5,7 +5,7 @@ const BASE = `${import.meta.env.VITE_BACKEND_URL}/api/multipart-uploads`
 
 const storageKey = (file: File) => `upload:${file.name}:${file.size}:${file.lastModified}`
 
-const PART_SIZE = 5 * 1024 * 1024 // S3 minimum for all but the last part
+// const PART_SIZE = 5 * 1024 * 1024 // S3 minimum for all but the last part
 
 export default function Uploads() {
   const [status, setStatus] = useState('')
