@@ -56,18 +56,22 @@ export default function Uploads() {
       currentRef.current = { uploadId: uploadId!, key }
 
       const done = new Set(uploadedParts)
-      for (let partNumber = 1; partNumber <= partCount; partNumber++) {
-        if (done.has(partNumber)) continue
+      const missing: number[] = []
+      for (let n = 1; n <= partCount; n++) if (!done.has(n)) missing.push(n)
+
+      // one batched call for all still-needed URLs; they expire after 15 min —
+      // a session outliving that fails on a later part and is recovered via resume
+      const urlRes = await fetch(`${BASE}/${uploadId}/part-urls`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ partNumbers: missing }),
+        signal,
+      })
+      if (!urlRes.ok) throw new Error(`part-urls: HTTP ${urlRes.status}`)
+      const partUrls: { partNumber: number; url: string }[] = await urlRes.json()
+
+      for (const { partNumber, url } of partUrls) {
         setStatus(`uploading part ${partNumber}/${partCount}`)
-        // presigned URLs expire after 15 min, so fetch each part's URL just before use
-        const urlRes = await fetch(`${BASE}/${uploadId}/part-urls`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ partNumbers: [partNumber] }),
-          signal,
-        })
-        if (!urlRes.ok) throw new Error(`part-urls: HTTP ${urlRes.status}`)
-        const [{ url }] = await urlRes.json()
         const start = (partNumber - 1) * partSize
         const res = await fetch(url, { method: 'PUT', body: file.slice(start, start + partSize), signal })
         if (!res.ok) throw new Error(`part ${partNumber}: HTTP ${res.status}`)
